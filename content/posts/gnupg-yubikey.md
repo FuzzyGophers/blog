@@ -1,8 +1,8 @@
-+++ 
-draft = true
++++
+draft = false
 date = 2025-07-19T12:00:00-04:00
-title = "GnuPG and Yubikeys"
-description = ""
+title = "GnuPG and Yubikey"
+description = "Using GnuPG generated keys on a Yubikey hardware token"
 slug = ""
 authors = ['Aaron Bauman']
 tags = []
@@ -12,64 +12,89 @@ series = []
 +++
 
 ## Introduction
-Public key cryptography is, thankfully, becoming more common and accessible. One
-of my favorite setups is using a [Yubikey](https://www.yubico.com) paired with
-[GnuPG](https://www.gnupg.org/). This is ideal for contributing to Free and Open
-Source Software (FOSS), personal use, and really anywhere you intend to add a
-layer of security.
 
-### Hardware Keys
-There are many options available in the hardware key world. There are many
-aspects of choosing which key is right for the individual; however, I weigh
-several areas that are most important to me, overall security, performance, and
-open source availability. As a former Gentoo developer, the
-[Foundation](https://bugs.gentoo.org/659620) provided Nitrokeys to all
-developers. If my memory is correct, the Nitrokeys met all requirements for
-available cryptography and open source, but lacked in performance compared to
-Yubico. Overall, weigh each of these to ensure you choose the best for you.
+Public key cryptography is increasingly common and accessible, providing robust
+security for various applications. Combining a [Yubikey](https://www.yubico.com)
+with [GnuPG](https://gnupg.org/) offers a powerful setup for securing Free and
+Open Source Software (FOSS) contributions, personal communications, and other
+use cases requiring enhanced security. This guide outlines the process of
+generating GnuPG keys and integrating them with a Yubikey hardware token.
+
+### Hardware Tokens
+
+Numerous hardware token options exist, each with unique characteristics. Key
+considerations for selecting a token include overall security, performance
+(e.g., speed of cryptographic operations), and open source availability. For
+example, the [Gentoo Foundation](https://bugs.gentoo.org/659620) provided
+Nitrokeys to developers, which met cryptography and open source requirements but
+were less performant compared to Yubico’s offerings. Evaluate these factors to
+choose the most suitable token for specific needs.
 
 ### Yubikey
-Yubico offers a lot of hardware keys with various configurations and levels of
-testing. While this article is not meant to dive too deep, Yubico does offer
-FIPS compliance with their Series 5 which is ideal for regulated industries and
-the key I would recommend to those considering.
+
+Yubico provides a range of hardware tokens with varying configurations and
+compliance levels. The Yubikey 5 Series, with FIPS compliance, is recommended
+for regulated industries due to its robust security features. This guide
+references the
+[Yubikey 4](https://support.yubico.com/hc/en-us/articles/360013714599-YubiKey-4),
+which supports RSA 4096-bit keys with OpenPGP, though newer models like the
+Yubikey 5 are preferred.
 
 ### GnuPG
-[GnuPG](https://www.gnupg.org/) has a long history, is RFC compliant, is Free and
-Open Source Software, and cross platform. Further, it has great support across
-many frontends and is integrated via many libraries. The downside is managing
-GPG keys can be a burden dependent upon implementation. This article will manage
-GPG keys via the command line.
+
+[GnuPG](https://gnupg.org/) is a long-standing, RFC-compliant, Free and Open
+Source Software (FOSS) tool that operates across multiple platforms. It
+integrates well with various frontends and libraries, making it versatile for
+secure communication and authentication. However, managing GPG keys can be
+complex depending on the implementation. This guide focuses on command-line key
+management.
+
+## Prerequisites
+
+Before proceeding, ensure the following:
+
+- A configured Yubikey hardware token (e.g., Yubikey 4 or 5) is available.
+- Basic familiarity with terminal commands is assumed.
+- For macOS, Homebrew is installed (`brew`). For Linux, a package manager like
+  `portage` or `dnf` is required. For Windows, tools like Gpg4win are
+  recommended.
+- An air-gapped system (optional but recommended) for generating and backing up
+  the keys to minimize exposure.
 
 ## Configuration
-This article will cover two parts of implementation. Generating the respective
-keys within GnuPG and adding those to the hardware key. I will be focusing on
-MacOS but dependencies and configuration will generally be the same on your
-favorite Linux distro.
+
+This guide covers two primary tasks: generating GnuPG keys and transferring them
+to a Yubikey. The instructions focus on macOS, but dependencies and
+configurations are generally similar for Linux distributions. Windows users may
+need to adapt commands using tools like Gpg4win.
 
 ### GnuPG
+
 ```bash
 brew install gnupg pinentry-mac
 
 ```
 
+Set the preferred digest algorithm to SHA-512
+
 ```bash
 echo "use-agent cert-digest-algo SHA512" > ~/.gnupg/gpg.conf
 ```
 
-The second configuration item sets SHA-512 as the preferred digest algorithm.
-
-Before generating keys, please ensure you understand the specifications of the
-hardware token. That is, what cryptography it can handle, etc. For me, I am
-using a [Yubikey
-4](https://support.yubico.com/hc/en-us/articles/360013714599-YubiKey-4?gad_source=1&gad_campaignid=22540972794)
-which is capable of 4096 bits (e.g. RSA 4096) with OpenPGP (i.e. GnuPG).
+Ensure the Yubikey supports the chosen cryptography (e.g., RSA 4096 for Yubikey
+4). RSA is used here for compatibility, though ECC is the default in modern
+GnuPG due to its efficiency.
 
 #### Generating Master Key
-The first step is to generate a master key. This will be followed up by
-generating subkeys which will be moved to the hardware key. Finally, we will
-backup the master key, store it offline, and delete it from the keyring to enhance
-our security posture.
+
+Generate a master key for certification purposes, followed by subkeys for daily
+use on the Yubikey. Back up the master key securely and remove it from the local
+keyring to enhance security.
+
+**Optional: Perform all operations on an air-gapped machine until all keys are
+backed up and deleted from the keyring to minimize exposure.**
+
+Generate key in expert mode to set custom capabilities:
 
 ```bash
 captainamerica@tater:~$ gpg --full-generate-key --expert
@@ -89,8 +114,17 @@ Please select what kind of key you want:
   (11) ECC (set your own capabilities)
   (13) Existing key
   (14) Existing key from card
-Your selection? 8
+```
 
+Choose "RSA (set your own capabilities)":
+
+```bash
+Your selection? 8
+```
+
+Toggle off Signing and Encryption, leaving Certify:
+
+```bash
 Possible actions for this RSA key: Sign Certify Encrypt Authenticate
 Current allowed actions: Sign Certify Encrypt
 
@@ -120,6 +154,11 @@ Current allowed actions: Certify
    (Q) Finished
 
 Your selection? Q
+```
+
+Set key length to 4096 bits and expiration to 1 year:
+
+```bash
 RSA keys may be between 1024 and 4096 bits long.
 What keysize do you want? (3072) 4096
 Requested keysize is 4096 bits
@@ -132,7 +171,11 @@ Please specify how long the key should be valid.
 Key is valid for? (0) 1y
 Key expires at Sun Jul 19 17:11:46 2026 EDT
 Is this correct? (y/N) y
+```
 
+Enter identifying information:
+
+```bash
 GnuPG needs to construct a user ID to identify your key.
 
 Real name: John Doe
@@ -155,39 +198,29 @@ pub   rsa4096 2025-07-19 [C] [expires: 2026-07-19]
 uid                      John Doe <johnny@doe.com>
 ```
 
-As seen above, GnuPG offers (4) actions allowed by our GnuPG key, Sign, Certify,
-Authenticate, and Encrypt. By default, (3) of these are enabled. We will toggle
-off Sign and Encrypt leaving Certify as the only option.
-
-As this is the master key, certifying is the only action it will be used
-for. Certifying is used to sign others GPG keys, generate new subkeys, extend
-expiry, and revoking the key. Given this set of actions, accessing this key is
-considered a high threat which may lead to compromising access to critical
-infrastructure, code bases, and other places the key is used.
-
-The other option and choice here is to set the expiry for the key. I have chosen
-1 year and advocate this for several reasons. Should an individual lose access
-to the key or revocation certificate, the key will eventually expire. Ideally,
-this is handled through proper revocation. The other aspect is, we can extend
-the expiry of the key as it's used. This allows the individual to maintain
-proficiency in managing the key.
+The master key is configured for certification only, used for signing other
+keys, generating subkeys, extending expiration, or revoking keys. This
+restricted role minimizes risk, as compromising the master key could affect
+critical infrastructure or trusted code bases. A 1-year expiration ensures the
+key becomes invalid if lost, though it can be extended as needed. Regular
+interaction with the key maintains proficiency in its management.
 
 #### Revocation Certificate
-Highly important to this process is generating the revocation certificate. This
-certificate should be treated equally to the master key. Backed up and stored
-offline.
+
+Generate a revocation certificate to allow key revocation, if needed. Store it
+securely, treating it with the same care as the master key:
 
 ```bash
 gpg --gen-revoke 70334C09AD28CF3CC05F38CAE854050599A57489 >
 ~/key-revocation-certificate.asc
 ```
 
-The above will generate the revocation certificate. Feel free to save it to
-whatever file makes sense to you with a .asc extension.
-
 #### Subkey Generation
-In this phase, we will generate subkeys for daily use on the hardware key. There
-will be (3) keys generated for Signing, Authentication, and Encryption.
+
+Generate three subkeys for signing, encryption, and authentication to handle
+daily operations on the Yubikey.
+
+Edit the key:
 
 ```bash
 captainamerica@tater:~$ gpg --expert --edit-key 70334C09AD28CF3CC05F38CAE854050599A57489
@@ -201,7 +234,11 @@ sec  rsa4096/E854050599A57489
      created: 2025-07-19  expires: 2026-07-19  usage: C
      trust: ultimate      validity: ultimate
 [ultimate] (1). John Doe <johnny@doe.com>
+```
 
+Generate the Encryption subkey:
+
+```bash
 gpg> addkey
 Please select what kind of key you want:
    (3) DSA (sign only)
@@ -236,7 +273,11 @@ sec  rsa4096/E854050599A57489
 ssb  rsa4096/08FC38926722D573
      created: 2025-07-19  expires: 2026-07-19  usage: E
 [ultimate] (1). John Doe <johnny@doe.com>
+```
 
+Generate the Signing subkey:
+
+```bash
 gpg> addkey
 Please select what kind of key you want:
    (3) DSA (sign only)
@@ -273,7 +314,11 @@ ssb  rsa4096/08FC38926722D573
 ssb  rsa4096/16F2BF1AF721EC4D
      created: 2025-07-19  expires: 2026-07-19  usage: S
 [ultimate] (1). John Doe <johnny@doe.com>
+```
 
+Generate the Authentication subkey, setting custom capabilities:
+
+```bash
 gpg> addkey
 Please select what kind of key you want:
    (3) DSA (sign only)
@@ -356,37 +401,40 @@ ssb  rsa4096/16F2BF1AF721EC4D
 ssb  rsa4096/010C39E986CEF8EB
      created: 2025-07-19  expires: 2026-07-19  usage: A
 [ultimate] (1). John Doe <johnny@doe.com>
+```
+
+Finally, save changes!
+
+```bash
 gpg> save
 ```
 
-The final key generated is a bit different, in that we must set our own
-capabilities. Hence, the toggling of features, so pay extra attention as you
-generate it! 
+Generating keys in GnuPG allows backups and supports multiple hardware tokens,
+simplifying recovery if a Yubikey is lost or damaged. Alternatively, generating
+keys directly on the Yubikey ensures they never leave the device but prevents
+backups, complicating recovery and usability.
 
-Finally, ensure you save the key.
+#### Export Secrets
 
-I prefer to generate all keys within GnuPG and back them up. This also allows
-you to use multiple hardware keys and not experience issues decrypting,
-authenticating, etc. It simply makes it easier. You may see other articles
-written that suggest generating the Signing and Authentication keys on the
-hardware key. Additionally, should a hardware key break, you are able to simply
-purchase a new one and load the keys.
-
-#### Export Secret Key(s)
-This is absolutely critical. Ensuring you have a proper backup of keys is paramount.
+Export the master key secret:
 
 ```bash
 gpg --export-secret-key 70334C09AD28CF3CC05F38CAE854050599A57489 >
 ~/70334C09AD28CF3CC05F38CAE854050599A57489-secret.pgp
+```
 
+Export the subkeys secrets:
+
+```bash
 gpg --export-secret-subkeys --armor  70334C09AD28CF3CC05F38CAE854050599A57489 > ~/subkeys.asc
 ```
 
-#### Copying keys to hardware key
-*Note: This is a destructive process!*
+#### Copying keys to hardware token
 
-When you copy a key to the card it will permanently remove it from the GnuPG
-keyring. If you have not backed up your keys, per previous step, then do not proceed.
+**Note: This is a destructive process!**
+
+Ensure backups are complete before proceeding as transferring keys to the
+Yubikey removes them from the local GnuPG keyring.
 
 ```bash
 gpg --expert --edit-key 70334C09AD28CF3CC05F38CAE854050599A57489
@@ -427,45 +475,87 @@ ssb  rsa4096/010C39E986CEF8EB
 
 gpg> keytocard
 ```
-Take note of the * next to the Encryption key which ensures we selected the
-proper key and are moving it to the hardware key.
 
-Repeat this process for the Signing and Authentication keys.
+The asterisk (\*) indicates the selected key. Ensure only one key is selected.
+Repeat for Signing and Authentication subkeys.
 
-If you are making use of a second hardware key, then you will need to restore
-the backup to the keychain.
+For multiple Yubikeys, restore subkey secrets from subkeys.asc to the keyring
+before transferring to additional devices:
 
-### Offline Master Key
-Now that all keys have been generated and moved to the Yubikey, the master key
-can be removed from the local keychain. Again, do not proceed here if you have
-not properly backed up the master key as described above.
-
-The below command will list the keygrips which are needed to remove the key.
+Example import of subkeys (this restores secrets to the local keychain):
 
 ```bash
+gpg --import ~/subkeys.asc
+```
+
+### Offline Master Key
+
+After transferring subkeys to the Yubikey, remove the master key from the local
+keyring to enhance security. Ensure a backup exists before proceeding.
+
+List keygrips to identify the master key:
+
+```bash
+gpg --list-keys --with-keygrip
+
 sec   rsa4096 2025-07-19 [C] [expires: 2026-07-19]
       70334C09AD28CF3CC05F38CAE854050599A57489
       Keygrip = 7F2A5095D3CBFB74199596DFB39EBE4D4A734A7A
 uid           [ultimate] John Doe <johnny@doe.com>
 ```
 
+Delete the master key (this is permanent):
+
 ```bash
 gpg-connect-agent "DELETE_KEY 7F2A5095D3CBFB74199596DFB39EBE4D4A734A7A" /bye
 ```
 
+Verify the secret key is removed:
+
+```bash
+gpg --list-secret-keys
+```
+
+Confirm the master key stub (sec#):
+
+```bash
+-------------------------------------
+sec#  rsa4096
+```
+
+Confirm the subkey stubs (ssb>):
+
+```bash
+ssb>  rsa4096
+ssb>  rsa4096
+ssb>  rsa4096
+```
+
+### Master Key Storage
+
+Securely store the master and revocation keys to enable annual expiration
+updates or revocation. Options include a USB drive in a safe, cloud storage with
+multiple authentication layers (e.g., MFA), or a printed backup using Paperkey.
+Combining methods is also recommended. Retain multiple backups across several
+locations. The possibilities are endless, be creative based on your needs.
+
 ### Publishing Keys
-There are multiple public keyservers to share your key with. I prefer using
-[OpenPGP](https://keys.openpgp.org/) servers. Here are a couple of examples to
-upload keys to the servers. I personally prefer the second example.
+
+Share the public key via keyservers like [OpenPGP](https://keys.openpgp.org/),
+which requires email verification for privacy:
+
+Alternative keyservers include pgp.mit.edu or keyserver.ubuntu.com. You may
+choose to use multiple for redundancy. Ensure you know which keyservers you
+chose in case of revocation. Most servers are not federated and will require
+individual calls to revoke.
 
 ```bash
 gpg --send-keys --keyserver hkps://keys.openpgp.org
-7F2A5095D3CBFB74199596DFB39EBE4D4A734A7A
+70334C09AD28CF3CC05F38CAE854050599A57489
 ```
+
+Preferred method:
 
 ```bash
 gpg --export johnny@doe.com | curl -T - https://keys.openpgp.org
 ```
-
-That's all for this post. I may cover more in depth discussions around GnuPG and
-hardware in other posts. I hope this helps!
